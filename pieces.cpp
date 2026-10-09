@@ -190,9 +190,7 @@ std::vector<Square> Queen::vision(const Board& b) const {
             curr_tile.file = curr_tile.file + f[i];
         }
     }
-
     return sees;
-
 }
 
 std::vector<Square> King::vision(const Board& b) const {
@@ -219,13 +217,12 @@ std::vector<Square> King::vision(const Board& b) const {
         if(!b.OOB(adjacent_square) && !b.square_is_attacked(adjacent_square, color())) {
             sees.push_back(adjacent_square);
         }
-        
     }
-    std::cout << "King at " << position().translate() << " sees: ";
-    for (const auto& square : sees) {
-        std::cout << square.translate() << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "King at " << position().translate() << " sees: ";
+    // for (const auto& square : sees) {
+    //     std::cout << square.translate() << " ";
+    // }
+    // std::cout << std::endl;
     return sees;
 
 }

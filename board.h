@@ -18,6 +18,9 @@ struct MoveData {
 struct Move {
     Square from;
     Square to;
+    bool operator==(const Move& other) const {
+        return (from == other.from && to == other.to);
+    }
 };
 
 class Player;
@@ -41,7 +44,6 @@ class Board {
 
         int orientation() const;
         
-        void promote_pawn(const Square& promotion_square, const int& promotion_id);
         // Checks if the square is empty (nullptr)
         bool is_empty_square(const int& rank, const int& file) const;
         bool is_empty_square(const Square& s) const;
@@ -93,9 +95,11 @@ class Board {
             - does not check for incorrect piece movement
             these exceptions will be caught by move()
         */
-        const MoveData read_move_notation(const Player& plr, const std::string& action) const;
-        const Move returns_legal_move(const Player& plr, const MoveData& move) const;
-        const bool is_legal_move(const Player& plr, const Square& from, const Square& to) const;
+        const MoveData read_move_notation_(const Player& plr, const std::string& action);
+        const Move returns_legal_move_(const Player& plr, const MoveData& move) const;
+        const bool is_legal_move_(const Player& plr, const Square& from, const Square& to) const;
+        void promote_pawn_(const Square& promotion_square, const char promotion_letter);
+        void castle_(const Player& plr, const bool& long_castle=false);
 
        
 };

@@ -20,6 +20,7 @@ accepts a useful subset of standard algebraic chess notation.
 - En passant support
 - Parsing for common algebraic move notation, including captures and basic
   disambiguation (for example, `e4`, `Nf3`, `Bxc7`, and `Rae1`)
+- Support for pawn promotion, castling, and long castling
 
 ## Build and run
 
@@ -55,7 +56,6 @@ Nc6
 
 ## Planned improvements
 
-- Complete castling and pawn-promotion workflows
 - Strengthen edge-case king-safety and checkmate validation
 - Add automated unit tests for move legality and special moves
 - Replace manual ownership with modern C++ smart pointers

@@ -42,7 +42,7 @@ class Piece {
         void mark_as_moved();
 
         // Returns true if s is in the vision() vector
-        bool in_vision(const Board& b, const Square& s);
+        bool in_vision(const Board& b, const Square& s) const;
 
         
         void move_to(const int& file, const int& rank);

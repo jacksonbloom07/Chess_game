@@ -9,10 +9,16 @@ class InvalidMoveException : public std::runtime_error {
         explicit InvalidMoveException(const std::string& msg)
             : std::runtime_error(msg) {}
     };
+
+class IllegalMoveException : public std::runtime_error {
+    public:
+        explicit IllegalMoveException(const std::string& msg)
+            : std::runtime_error(msg) {}
+    };
     
 struct MoveData {
     Square to_move_to;                  // the single destination square, e.g. e1
-    std::vector<Square> candidates;     // every piece that could legally move there syntactically
+    std::vector<Square> canidates;     // every piece that could legally move there
 }; 
 
 struct Move {
@@ -51,7 +57,7 @@ class Board {
         // Move a piece from one square to another
         bool move(Player& plr, const Square& from, const Square& to);
         // void move(const int& from_rank, const int& from_file, const int& to_rank, const int& to_file);
-        bool move(Player& plr, const std::string& action);
+        bool move(Player& plr, std::string& action);
 
         // Flip the board orientation
         void flip_board();
@@ -68,7 +74,10 @@ class Board {
         // - The position and color of that pawn are for Pawn::vision() for en passant oppurtunity
         Piece* en_passant() const;
 
-        bool in_check(const Piece* king) const; // eventually change to in_check(const Player& plr) const or in_check(const int& plr_color) const
+        bool in_check(const Player& plr) const;
+
+        bool checkmate(const Player& plr);
+        bool stalemate(const Player& plr);
 
 
     private:
@@ -81,7 +90,7 @@ class Board {
 
         std::vector< std::vector<Piece*> > pieces_; // Pieces[0] = Pieces[WHITE] = vector of white pieces
         std::vector<Piece*> kings_;
-        void remove_piece_(const Piece* p); // Removes p from pieces_ faster by swapping to back and calling .pop_back()
+        void remove_from_pieces_(const Piece* p); // Removes p from pieces_ faster by swapping to back and calling .pop_back()
 
         // True if there is a King opposite color to "k" adjacent to Square to "to_check"
         // bool adjacent_enemy_king_(const int& king_color, const Square& to_check) const;
@@ -95,13 +104,12 @@ class Board {
             - does not check for incorrect piece movement
             these exceptions will be caught by move()
         */
-        const MoveData read_move_notation_(const Player& plr, const std::string& action);
-        const Move returns_legal_move_(const Player& plr, const MoveData& move) const;
-        const bool is_legal_move_(const Player& plr, const Square& from, const Square& to) const;
+        const MoveData read_move_notation_(const Player& plr, std::string& action);
+        const Move returns_legal_move_(const Player& plr, const MoveData& move);
+        const bool is_legal_move_(const Player& plr, const Square& from, const Square& to);
+        
         void promote_pawn_(const Square& promotion_square, const char promotion_letter);
         void castle_(const Player& plr, const bool& long_castle=false);
-
-       
 };
 
 #endif

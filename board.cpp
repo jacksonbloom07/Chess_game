@@ -96,9 +96,11 @@ bool Board::OOB(const int& rank, const int& file) const {
 
 void Board::print_board() const {
     const char* SQUARES[2] = {"□", "■"};
-    int inc_dec[] = {-1, 1}; // increments or decrements by WHITE or BLACK orientation
-    for (int rank = 7; rank >= 0; rank += inc_dec[orientation_]) {
-        for (int file = 0; file < 8; file++) {
+    for (int i = 0; i < 8; ++i) {
+        int rank = (orientation_ == WHITE) ? (7 - i) : i;
+        // if orientation 
+        for (int j = 0; j < 8; ++j) {
+            int file = (orientation_ == WHITE) ? j : (7 - j);
             if (is_empty_square(rank, file)) {
                 // Black if col and row are both even or if col and row are both odd
                 // else white
@@ -114,6 +116,8 @@ void Board::print_board() const {
         std::cout << std::endl;
     }
     std::cout << std::endl;
+
+    
 }
 
 bool Board::is_empty_square(const int& rank, const int& file) const {
@@ -139,57 +143,117 @@ int Board::orientation() const { return orientation_; }
 
 Piece* Board::get_square(const Square& s) const { return board[s.rank][s.file]; }
 
-const bool Board::is_legal_move_(const Player& plr, const Square& from, const Square& to) const {
+const bool Board::is_legal_move_(const Player& plr, const Square& from, const Square& to) {
     if (OOB(from) || OOB(to)) {
-        std::cout << "Error: Out of bounds move check (Square from, Square to): [" << from << "][" << to << "]"
-                  << std::endl;
+        // std::cout << "Error: Out of bounds move check (Square from, Square to): [" << from << "][" << to << "]"
+        //           << std::endl;
         return false;
     }
     if (Piece* p = get_square(from)) {
         if (p->color() != plr.color_pieces()) {
-            std::cout << "Error: Attempting to move piece that is not your color: " << *p << std::endl;
+            // std::cout << "Error: Attempting to move piece that is not your color: " << *p << std::endl;
             return false;
         }
-        if (p->id() == KING && in_check(p) && !p->in_vision(*this, to)) {
-            std::cout << "Error: Attempting to move king that is in check to a square that does not block check: " << *p << std::endl;
+        if (Piece* p2 = get_square(to); p2 && p2->color() == p->color()) {
+            // std::cout << "Error: Square blocked by own piece: " << *p2 << std::endl;
             return false;
         }
-        
-        if (!p->in_vision(*this, to)) {
-            std::cout << "Error: Attempting to move piece that cannot see destination square: " << *p << std::endl;
+        if (p->id() == KING) {
+            if (square_is_attacked(to, !p->color())) {
+                return false;
+            }
+        }
+        if (!p->in_vision(*this, to)) { // might never trigger
+            // std::cout << "Error: Attempting to move piece that cannot see destination square: " << *p << std::endl;
+            return false;
+        }
+        /*
+        Do move, check to see if it leaves player in check:
+        */
+        bool leaves_king_in_check = false;
+        Piece* to_capture = board[to.rank][to.file];
+
+        int direction[] = {1, -1};
+        if (auto enemy_pawn = en_passant(); enemy_pawn && 
+            p->id() == PAWN && 
+            to.rank == enemy_pawn->position().rank + direction[p->color()]) {
+            to_capture = enemy_pawn;
+        }
+
+        board[to.rank][to.file] = p;
+        board[from.rank][from.file] = nullptr;
+        p->move_to(to);
+
+        if (en_passant() && to_capture && to_capture->position() != to) { // player took en passant
+            board[(to_capture->position()).rank][(to_capture->position()).file] = nullptr; // Remove captured pawn
+        }
+
+        Square capture_position;
+        if (to_capture) {
+            capture_position = to_capture->position(); // saves position before moving off board
+            to_capture->move_to(-1, -1); // temperarily moving piece "off the board" so that it has no "vision"
+        }
+
+        if (in_check(plr)) {
+            leaves_king_in_check = true;
+        }
+
+        // returning everything back to where it was
+        board[from.rank][from.file] = p;
+        board[to.rank][to.file] = nullptr;
+        p->move_to(from);
+        if (to_capture) {
+            board[capture_position.rank][capture_position.file] = to_capture; // put piece back
+            to_capture->move_to(capture_position); // reinstate its position
+        }
+        if (leaves_king_in_check) {
             return false;
         }
         return true;
     }
     else {
-        std::cout << "Error: Attempting to move piece that does not exist on square: " << from.translate() << std::endl;
+        // std::cout << "Error: Attempting to move piece that does not exist on square: " << from.translate() << std::endl;
         return false;
     }
 }
 
-const Move Board::returns_legal_move_(const Player& plr, const MoveData& move) const {
-    if (move.candidates.size() == 0 && move.to_move_to == Square(-1, -1)) {
+const Move Board::returns_legal_move_(const Player& plr, const MoveData& move) {
+    if (move.canidates.size() == 0 && move.to_move_to == Square(-1, -1)) {
         return {Square(-1, -1), Square(-1, -1)};
     }
-    if (move.candidates.size() < 1) {
-        throw InvalidMoveException("Invalid move: No pieces can move to " + move.to_move_to.translate());
+    if (move.canidates.size() < 1) {
+        throw InvalidMoveException("Invalid move: No pieces of that type can move to " + move.to_move_to.translate());
     }
-    else if (move.candidates.size() > 1) {
+    else if (move.canidates.size() > 1) {
         throw InvalidMoveException("Invalid move: Too many pieces can move to " + move.to_move_to.translate());
     }
-    Square from = move.candidates[0];
+    Square from = move.canidates[0];
     Square to = move.to_move_to;
     if (is_legal_move_(plr, from, to)) {
         return {from, to};
     }
     else {
-        throw InvalidMoveException("Invalid move: Piece on " + from.translate() + " cannot move to " + to.translate());
+        if (is_empty_square(from)) {
+            throw InvalidMoveException("Invalid move: there is no piece on " + from.translate());
+        }
+        else if (get_square(from)->color() != plr.color_pieces()) {
+            throw InvalidMoveException("Invalid move: Piece on " + from.translate() + " belongs to the other player");
+        }
+        else {
+            throw InvalidMoveException("Invalid move: Piece on " + from.translate() + " cannot move to " + to.translate());
+        }
     }
 
 }
 
-const MoveData Board::read_move_notation_(const Player& plr, const std::string& action) {
-    MoveData empty_move = {Square(-1, -1), {}};
+const MoveData Board::read_move_notation_(const Player& plr, std::string& action) {
+    MoveData empty_move = {Square(-1, -1), {}}; 
+    if (action[action.length() - 1] == '+' || action[action.length() - 1] == '#') {
+        action.pop_back(); // check or checkmate notation does not change the move and just makes it harder to parse
+
+        // unfortunate side-effect is that any move is valid with + or # suffix regardless if that is actually valid
+        // I wanted to support the notation, but I figured that validity checking this would just be more code and complicate the program
+    }
     if (action == "O-O") {
        castle_(plr, false);
        return empty_move;
@@ -261,22 +325,22 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
         Square sqr_behind_tile = Square(tile.rank - (direction[plr.color_pieces()]), tile.file);
         Square two_sqrs_behind_tile = Square(tile.rank - 2 * (direction[plr.color_pieces()]), tile.file);
 
-        std::vector<Square> candidates = {};
+        std::vector<Square> canidates = {};
         if (!OOB(sqr_behind_tile)) {
             if (Piece* potential_pawn = get_square(sqr_behind_tile)) {
                 if (potential_pawn->id() == PAWN && potential_pawn->color() == plr.color_pieces()) {
-                    candidates.push_back(sqr_behind_tile);
+                    canidates.push_back(sqr_behind_tile);
                 }
             }
             else if (tile.rank == 3 + plr.color_pieces()) { // tile is a square that can be double-jumped to
                if (Piece* potential_pawn = get_square(two_sqrs_behind_tile)) {
                     if (potential_pawn->id() == PAWN && potential_pawn->color() == plr.color_pieces()) {
-                        candidates.push_back(two_sqrs_behind_tile);
+                        canidates.push_back(two_sqrs_behind_tile);
                     }
                 }
             }
         }
-        return {tile, candidates};
+        return {tile, canidates};
     }
 
     if (action.length() == 3 || (action.length() == 4 && action[1] == 'x')) { // Qc2 || Nxh7 TODO add en_passant checking for capturing
@@ -298,33 +362,23 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
                     return {Square(tile.rank - direction[en_passant_pawn->color()], tile.file), {capturer_square}}; // Return the square of the captured pawn
                 }
             }
-            // Pawn at d4 sees: d3 c3 
-            // if en passant() -> en_passant pawn is on c4
-            // if action = exc4, c4 is not in pawn's vision, BUT if en_passant() && tile == en_passant()->position + direction[] -> its valid
-            // therefore the pawn should be able to move to en_passant()->position + direction[] := c3 
-            // when interpreted, c3 is in vision of the pawn and should pass the legal move check
-
         
-            // If not en passant, ensure the pawn is capturing a piece
+            // If not en passant, if the pawn is not capturing a piece, it is incorrect
             if (is_empty_square(tile)) {
                 throw InvalidMoveException("Bad notation; attempting to capture empty square, or maybe accidentally used lowercase letters for pieces?");
             }
         }
 
         Piece* potential_piece = nullptr;
-        std::vector<Square> candidates;
+        std::vector<Square> canidates;
         for (int i = 0; i < pieces_[plr.color_pieces()].size(); i++) {
             if ((potential_piece = pieces_[plr.color_pieces()][i])->id() == id_to_move) {
                 if (potential_piece->in_vision(*this, tile)) {
-                    candidates.push_back(potential_piece->position());
+                    canidates.push_back(potential_piece->position());
                 }
             }
         }
-        // std::cout << "Debug: done, candidates.size() = " << candidates.size() << std::endl;
-        // std::cout << "Debug: about to attempt to assign to_move..." << std::endl;
-        return {tile, candidates};
-        // std::cout << "Debug: position of to_move: " << to_move->position() << std::endl;
-
+        return {tile, canidates};
     }
 
     else if (action.length() == 4 || (action.length() == 5 && action[2] == 'x')) { // R2e4 || Rfxd3
@@ -334,13 +388,13 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
             throw InvalidMoveException("Bad notation, attempting to capture empty square: " + tile.translate());
         }
 
-        std::vector<Square> candidates;
+        std::vector<Square> canidates;
         if (isdigit(action[1])) { // Rank specificiation
             int rank = action[1] - '1';
             for(int i = 0; i < 8; i++) {
                 if (Piece* p = board[rank][i]) {
                     if (p->color() == plr.color_pieces() && p->in_vision(*this, tile)) {
-                        candidates.push_back(p->position());
+                        canidates.push_back(p->position());
                     }
                 }
             }
@@ -351,13 +405,13 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
                 if (Piece* p = board[i][file]) {
                     if (p->color() == plr.color_pieces() &&
                     p->in_vision(*this, tile)) {
-                        candidates.push_back(p->position());
+                        canidates.push_back(p->position());
                     }
                 }
             }
         }
 
-        return {tile, candidates};
+        return {tile, canidates};
     }
     /*
     captures: [Piece]x[tile] len = 4
@@ -370,7 +424,7 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
             Specification captures: R1xc2, Rfxd3, Qdxf7  len = 5
             Double specification captures: Rc1xc2, Rf3xd3  len = 6
     */
-    else if (action.length() == 5 || (action.length() == 6 && action[3] == 'x')) { // Re1e5 || TODO: Rc1xc2
+    else if (action.length() == 5 || (action.length() == 6 && action[3] == 'x')) { // Re1e5 || Rc1xc2
         Square piece_loc = Square(action.substr(1, 2));
         tile = (action.length() == 5) ? Square(action.substr(3, 2)) : Square(action.substr(4, 2));
 
@@ -379,7 +433,6 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
             throw InvalidMoveException("Invalid notation: No piece to capture on " + tile.translate());
         }
 
-
         return {tile, {piece_loc}};
     }
     else {
@@ -387,7 +440,7 @@ const MoveData Board::read_move_notation_(const Player& plr, const std::string& 
     }
 }
 
-bool Board::move(Player& plr, const std::string& action) { // TODO write castle(), long_castle(), and promotion()
+bool Board::move(Player& plr, std::string& action) { // TODO write castle(), long_castle(), and promotion()
     /*
     action shorthands:
         Basic: [Piece][tile] len = 3, 
@@ -440,6 +493,10 @@ bool Board::move(Player& plr, const std::string& action) { // TODO write castle(
         std::cout << e.what() << std::endl;
         return false;
     }
+    catch(IllegalMoveException& e) {
+        std::cout << e.what() << std::endl;
+        return false;
+    }
     catch(std::runtime_error& e) {
         std::cout << e.what() << std::endl;
         return false;
@@ -447,8 +504,6 @@ bool Board::move(Player& plr, const std::string& action) { // TODO write castle(
 }
 
 bool Board::move(Player& plr, const Square& from, const Square& to) {
-    bool before_plr_in_check = in_check(kings_[plr.color_pieces()]);
-    
     Piece* p = get_square(from);
     if (!p) {
         throw std::runtime_error("Error: No piece on square " + from.translate());
@@ -466,26 +521,31 @@ bool Board::move(Player& plr, const Square& from, const Square& to) {
 
     board[to.rank][to.file] = p;
     board[from.rank][from.file] = nullptr;
+    p->move_to(to);
 
     if (en_passant() && to_capture && to_capture->position() != to) { // player took en passant
         board[(to_capture->position()).rank][(to_capture->position()).file] = nullptr; // Remove captured pawn
     }
 
-    if (before_plr_in_check && in_check(kings_[plr.color_pieces()])) {
-        if (en_passant() && to_capture == en_passant()) { 
-            board[(to_capture->position()).rank][(to_capture->position()).file] = to_capture;
-        }
-        else {
-            board[to.rank][to.file] = to_capture;
-            // technically if to_capture == nullptr, it's nullptr anyway but I think this is more explicit and readable
-        }
-        
-        board[from.rank][from.file] = p;
-        std::cout << "Invalid move: Player currently in check" << std::endl;
-        return false;
+    Square capture_position;
+    if (to_capture) {
+        capture_position = to_capture->position(); // saves position before moving off board
+        to_capture->move_to(-1, -1); // temperarily moving piece "off the board" so that it has no "vision"
     }
-    else if (to_capture) {
-        remove_piece_(to_capture);
+
+    if (in_check(plr)) { // if move leaves player still in check
+        board[from.rank][from.file] = p;
+        board[to.rank][to.file] = nullptr;
+        p->move_to(from);
+        if (to_capture) {
+            board[capture_position.rank][capture_position.file] = to_capture; // put piece back
+            to_capture->move_to(capture_position); // reinstate its position
+        }
+        throw IllegalMoveException("Illegal move: move leaves player in check");
+    }
+
+    if (to_capture) {
+        remove_from_pieces_(to_capture);
 
         plr.capture(to_capture);
         delete to_capture;
@@ -495,7 +555,7 @@ bool Board::move(Player& plr, const Square& from, const Square& to) {
 
     // Book keeping
 
-    p->move_to(to);
+    // p->move_to(to);
     last_moved_piece_ = p;
     last_moved_from_ = from;
     if (p->first_move()) {
@@ -508,7 +568,7 @@ bool Board::move(Player& plr, const Square& from, const Square& to) {
     
 }
 
-void Board::remove_piece_(const Piece* p) {
+void Board::remove_from_pieces_(const Piece* p) {
     auto &p_vec = pieces_[p->color()]; // "Pieces_ vector" created for readability
     auto it = std::find(p_vec.begin(), p_vec.end(), p);
     int capture_index = std::distance(p_vec.begin(), it);
@@ -531,12 +591,10 @@ bool Board::square_is_attacked(const Square& s, const int& by_color) const {
                 Square left_pawn_capture_square = Square(enemy_pieces[i]->position().rank + direction[enemy_pieces[i]->color()], enemy_pieces[i]->position().file - 1);
                 Square right_pawn_capture_square = Square(enemy_pieces[i]->position().rank + direction[enemy_pieces[i]->color()], enemy_pieces[i]->position().file + 1);
                 if (left_pawn_capture_square == s || right_pawn_capture_square == s) {
-                    // std::cout << "Debug: square_is_attacked: pawn on " << enemy_pieces[i]->position().translate() << " attacking " << s.translate() << std::endl;
                     return true;
                 }
             }
             else {
-                // std::cout << "Debug: square_is_attacked: piece on " << enemy_pieces[i]->position().translate() << " attacking " << s.translate() << std::endl;
                 return true;
             }
         }
@@ -551,8 +609,8 @@ bool Board::is_adjacent_(const Square& tile, const Square& to_check) const {
     return (std::abs(tile.rank - to_check.rank) == 1 && std::abs(tile.file - to_check.file) == 1);
 }
 
-bool Board::in_check(const Piece* king) const {
-    return (square_is_attacked(king->position(), !king->color()));
+bool Board::in_check(const Player& plr) const {
+    return (square_is_attacked(kings_[plr.color_pieces()]->position(), !plr.color_pieces()));
 }
 
 
@@ -609,13 +667,10 @@ void Board::promote_pawn_(const Square& promotion_square, const char promotion_l
             break;
         case 'Q':
             p = board[rank][file] = new Queen(pawn->color(), file, rank);
-            // std::cout << "Debug: creating queen at " << rank << ", " << file << std::endl;
-            // std::cout << "Debug: rank, file = " << Square(rank, file).translate() << std::endl;
-            // std::cout << "Debug: queen->position = " << (board[rank][file]->position()).translate() << std::endl;
             break;
     }
     board[pawn->position().rank][pawn->position().file] = nullptr;
-    remove_piece_(pawn);
+    remove_from_pieces_(pawn);
     
     // Book keeping
     pieces_[pawn->color()].push_back(board[rank][file]);
@@ -625,7 +680,9 @@ void Board::promote_pawn_(const Square& promotion_square, const char promotion_l
 
 void Board::castle_(const Player& plr, const bool& long_castle) {
     Piece* king = kings_[plr.color_pieces()];
-    if (in_check(king)) {
+    const int rank = king->position().rank; // 0 for white, 7 for black
+
+    if (in_check(plr)) {
         throw std::runtime_error("Error: Attempting to castle while in check");
     }
     if (!king->first_move()) {
@@ -633,57 +690,172 @@ void Board::castle_(const Player& plr, const bool& long_castle) {
     }
 
     if (long_castle) {
-        Piece* rook = get_square(king->position().rank, A);
+        Piece* rook = get_square(rank, A);
         if (!rook || rook->id() != ROOK || !rook->first_move()) {
             throw std::runtime_error("Error: Attempting to long castle with rook that has already moved");
         }
-        if (!is_empty_square(Square("b1")) || !is_empty_square(Square("c1")) || !is_empty_square(Square("d1"))) {
+        if (!is_empty_square(Square(rank, B)) || !is_empty_square(Square(rank, C)) || !is_empty_square(Square(rank, D))) {
             throw std::runtime_error("Error: Attempting to long castle with pieces in the way");
         }
-        if (square_is_attacked(Square("c1"), !plr.color_pieces()) || square_is_attacked(Square("d1"), !plr.color_pieces())) {
+        if (square_is_attacked(Square(rank, C), !plr.color_pieces()) || square_is_attacked(Square(rank, D), !plr.color_pieces())) {
             throw std::runtime_error("Error: Attempting to long castle through check");
         }
-        board[0][C] = king;
-        board[0][D] = rook;
+        board[rank][C] = king;
+        board[rank][D] = rook;
 
-        board[0][E] = nullptr;
-        board[0][A] = nullptr;
+        board[rank][E] = nullptr;
+        board[rank][A] = nullptr;
 
         // Book keeping
-        king->move_to(Square("c1"));
-        rook->move_to(Square("d1"));
-        
+        king->move_to(Square(rank, C));
+        rook->move_to(Square(rank, D));
         king->mark_as_moved();
         rook->mark_as_moved();
 
         last_moved_piece_ = king;
-        last_moved_from_ = Square("e1");
+        last_moved_from_ = Square(rank, E);
     }
     else {
-        Piece* rook = get_square(king->position().rank, H);
+        Piece* rook = get_square(rank, H);
         if (!rook || rook->id() != ROOK || !rook->first_move()) {
             throw std::runtime_error("Error: Attempting to castle with rook that has already moved");
         }
-        if (!is_empty_square(Square("f1")) || !is_empty_square(Square("g1"))) {
+        if (!is_empty_square(Square(rank, F)) || !is_empty_square(Square(rank, G))) {
             throw std::runtime_error("Error: Attempting to castle with pieces in the way");
         }
-        if (square_is_attacked(Square("f1"), !plr.color_pieces()) || square_is_attacked(Square("g1"), !plr.color_pieces())) {
+        if (square_is_attacked(Square(rank, F), !plr.color_pieces()) || square_is_attacked(Square(rank, G), !plr.color_pieces())) {
             throw std::runtime_error("Error: Attempting to castle through check");
         }
-        board[0][G] = king;
-        board[0][F] = rook;
+        board[rank][G] = king;
+        board[rank][F] = rook;
 
-        board[0][E] = nullptr;
-        board[0][H] = nullptr;
+        board[rank][E] = nullptr;
+        board[rank][H] = nullptr;
 
         // Book keeping
-        king->move_to(Square("g1"));
-        rook->move_to(Square("f1"));
+        king->move_to(Square(rank, G));
+        rook->move_to(Square(rank, F));
 
         king->mark_as_moved();
         rook->mark_as_moved();
 
         last_moved_piece_ = king;
-        last_moved_from_ = Square("e1");
+        last_moved_from_ = Square(rank, E);
     }
+}
+
+bool Board::checkmate(const Player& plr) {
+    if (!in_check(plr)) {
+        return false;
+    }
+    Piece* king = kings_[plr.color_pieces()];
+    for (const Square& s : king->vision(*this)) { // can move out of check
+        if (is_legal_move_(plr, king->position(), s)) {
+            std::cout << "Debug: NOT Checkmate by available legal King move" << std::endl;
+            return false;
+        }
+    }
+    Piece* attacking_piece = nullptr;
+    for (Piece* enemy_piece : pieces_[!plr.color_pieces()]) {
+        if (enemy_piece->in_vision(*this, king->position())) {
+            if (attacking_piece != nullptr) {
+                std::cout << "Debug: Checkmate by double check" << std::endl;
+                return true; // king has no legal moves && in double check
+            }
+            attacking_piece = enemy_piece;
+        }
+    }
+    if (attacking_piece == nullptr) {
+        throw std::logic_error("Error: In checkmate() -- King in check but no pieces found attacking king");
+    }
+    
+    std::vector<Square> blocking_squares; // includes the square of the attacking piece for capture
+
+    if (king->position().rank == attacking_piece->position().rank) {
+        int k_file = king->position().file;
+        int r_file = attacking_piece->position().file;
+        for (size_t i = 0; i < std::abs(k_file - r_file); ++i) {
+            int f = (r_file < k_file) ? (r_file + i) : (r_file - i);
+            blocking_squares.push_back(Square(king->position().rank, f));
+            
+            /*
+                3
+                2   R * * K
+                1
+                  a b c d e
+            */ 
+        }
+    }
+    else if (king->position().file == attacking_piece->position().file) {
+        int k_rank = king->position().rank;
+        int r_rank = attacking_piece->position().rank;
+        for (size_t i = 0; i < std::abs(k_rank - r_rank); ++i) {
+            int r = (r_rank < k_rank) ? (r_rank + i) : (r_rank - i);
+            blocking_squares.push_back(Square(r, king->position().file));
+            /*
+            6   R
+            5   *
+            4   *
+            3   *
+            2   K
+            1
+                c
+            */
+        }
+    }
+    else if (std::abs(king->position().file - attacking_piece->position().file) ==
+             std::abs(king->position().rank - attacking_piece->position().rank)) {
+        const Square& k_pos = king->position();
+        const Square& p_pos = attacking_piece->position();
+        for (size_t i = 0; i < std::abs(k_pos.rank - p_pos.rank); ++i) {
+            int r = (p_pos.rank < k_pos.rank) ? (p_pos.rank + i) : (p_pos.rank - i);
+            int f = (p_pos.file < k_pos.file) ? (p_pos.file + i) : (p_pos.file - i);
+            blocking_squares.push_back(Square(r, f));
+            /*
+            6   B
+            5      *
+            4         *
+            3            * 
+            2               K
+            1
+                a  b  c  d  e
+            */
+        }
+    }
+    if (attacking_piece->id() != KNIGHT) {
+        blocking_squares.push_back(attacking_piece->position());
+    }
+    else if (attacking_piece->id() != KNIGHT) {
+        throw std::logic_error("Error: In checkmate() -- King in check but no pieces found on same rank, file or diagonal && piece is not knight");
+    }
+    for (const Piece* p : pieces_[plr.color_pieces()]) {
+        for (const Square& s : blocking_squares) {
+            if (p->id() != KING && is_legal_move_(plr, p->position(), s)) {
+                std::cout << "Debug: NOT Checkmate by available legal move: piece on " << p->position().translate() << " -> " << s.translate() << std::endl;
+                return false;
+            }
+        }
+    }
+    std::cout << "Debug: blocking_squares: ";
+    for (const Square& s : blocking_squares) {
+        std::cout << s.translate() << " ";
+    }
+    std::cout << std::endl;
+    return true; // king has no legal moves && no pieces can capture the attacking piece && no piece can block
+    
+}
+
+bool Board::stalemate(const Player& plr) {
+    if (in_check(plr)) {
+        return false;
+    }
+    for (const Piece* p : pieces_[plr.color_pieces()]) {
+        for (const Square& s : p->vision(*this)) {
+            if (is_legal_move_(plr, p->position(), s)) {
+                return false;
+            }
+        }
+    }
+    return true;
+
 }

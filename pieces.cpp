@@ -54,19 +54,9 @@ bool Piece::first_move() const { return has_moved_ == false; }
 
 void Piece::mark_as_moved() { has_moved_ = true;}
 
-bool Piece::in_vision(const Board& b, const Square& s) {
+bool Piece::in_vision(const Board& b, const Square& s) const {
     
     std::vector<Square> sees = vision(b);
-    //if (id() == KING) {
-        // std::cout << "Debug: in_vision... id == " << *this << std::endl;
-        // std::cout << "Debug: sees.size() == " << sees.size() << std::endl;
-        // std::cout << "Debug: now attempting to iterate through..." << std::endl;
-   // }
-    // std::cout << "piece at " << position().translate() << " sees: ";
-    // for(size_t i = 0; i < sees.size(); i++) {
-    //     std::cout << sees[i].translate() << " ";
-    // }
-    // std::cout << std::endl;
     for(size_t i = 0; i < sees.size(); i++) {
         if (sees[i] == s) {
             return true;
@@ -87,6 +77,10 @@ void Piece::move_to(const Square& s) {
 
 std::vector<Square> Rook::vision(const Board& b) const { // To Do
     std::vector<Square> sees;
+    if (b.OOB(position())) {
+        return sees;
+    }
+
     int r[] = {-1, 1, 0, 0}; // rank increment and decrement
     int f[] = {0, 0, -1, 1}; // file increment and decrement
     for(int i = 0; i < 4; i++) {
@@ -115,18 +109,12 @@ std::vector<Square> Rook::vision(const Board& b) const { // To Do
 
 }
 
-// for(int rank = 0; rank < 7; rank++) {
-    //     curr_tile.rank++;
-    //     if (curr_tile.rank < 8) {
-    //         sees.push_back(curr_tile);
-    //         if (board[curr_tile.rank][square_loc.file] != nullptr) {
-    //             break;
-    //         }
-    //     }
-    // }
-
 std::vector<Square> Knight::vision(const Board& b) const {
     std::vector<Square> sees;
+    if (b.OOB(position())) {
+        return sees;
+    }
+    
     int r[] = {1, 2, 2, 1, -1, -2, -2, -1}; // rank increment and decrement
     int f[] = {-2, -1, 1, 2, 2, 1, -1, -2}; // file increment and decrement
 
@@ -143,6 +131,10 @@ std::vector<Square> Knight::vision(const Board& b) const {
 
 std::vector<Square> Bishop::vision(const Board& b) const {
     std::vector<Square> sees;
+    
+    if (b.OOB(position())) {
+        return sees;
+    }
 
     int r[] = {-1, 1, 1, -1}; // rank increment and decrement
     int f[] = {-1, -1, 1, 1}; // file increment and decrement
@@ -200,21 +192,8 @@ std::vector<Square> King::vision(const Board& b) const {
 
     for(int i = 0; i < 8; i++) {
         Square adjacent_square = Square(position().rank + r[i], position().file + f[i]);
-        //std::cout << "king::vision, potential_square == " << potential_square << std::endl;
-        //if (!b.OOB(potential_square)) {
-        //     std::cout << "!b.OOB(potential_square) = true, ";
-        //     if (b.safe_square(this, potential_square)) {
-        //         std::cout << "b.safe_square(this, potential_square) = true" << std::endl;
-        //     }
-        //     else {
-        //         std::cout << "b.safe_square(this, potential_square) = false" << std::endl;
-        //     }
-        // }
-        // else {
-        //     std::cout << "!b.OOB(potential_square) = false" << std::endl;
-        // }
         
-        if(!b.OOB(adjacent_square) && !b.square_is_attacked(adjacent_square, color())) {
+        if(!b.OOB(adjacent_square)) {
             sees.push_back(adjacent_square);
         }
     }
@@ -284,22 +263,3 @@ std::ostream& operator<<(std::ostream &os, const Piece &p) {
     os << piece_symbols[p.color_][p.PIECE_ID_];
     return os;
 }
-
-
-
-
-
-
-
-
-// std::string Board::get_char_(int PIECE, int COLOR) {
-//     //std::string PIECE_ID = "RNBQKpe";
-//     std::string piece_symbols[2][7] = {{"♖", "♘", "♗", "♕", "♔", "♙", "□"}, 
-//                                    {"♜", "♞", "♝", "♛", "♚", "♟", "■"}};
-    
-    
-//     if (PIECE >= 0 && PIECE < 8) return piece_symbols[COLOR][PIECE];
-    
-//     return "";
-    
-// }

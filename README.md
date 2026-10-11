@@ -17,9 +17,10 @@ accepts a useful subset of standard algebraic chess notation.
 - Board rendering with Unicode chess pieces
 - Captures and material tracking
 - Check detection and basic king-safety validation
-- En passant support
+- Checkmate and Stalemate validation
 - Parsing for common algebraic move notation, including captures and basic
   disambiguation (for example, `e4`, `Nf3`, `Bxc7`, and `Rae1`)
+- En passant support
 - Support for pawn promotion, castling, and long castling
 
 ## Build and run
@@ -56,7 +57,6 @@ Nc6
 
 ## Planned improvements
 
-- Strengthen edge-case king-safety and checkmate validation
 - Add automated unit tests for move legality and special moves
 - Replace manual ownership with modern C++ smart pointers
 - Add a graphical or web-based interface

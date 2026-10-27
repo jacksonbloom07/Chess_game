@@ -18,7 +18,7 @@ class IllegalMoveException : public std::runtime_error {
     
 struct MoveData {
     Square to_move_to;                  // the single destination square, e.g. e1
-    std::vector<Square> canidates;     // every piece that could legally move there
+    std::vector<Square> candidates;     // every piece that could legally move there
 }; 
 
 struct Move {
@@ -99,13 +99,40 @@ class Board {
 
         /* 
             Helper function for move() to decouple reading logic from move logic:
-            Returns a vector of size 2: (square to move piece from, square to move to)
+            Returns a MoveData object: (A Square for the intended square to move to,
+                                        a vector of possible candidates for pieces to move to that square)
+
             - does not bound check
             - does not check for incorrect piece movement
-            these exceptions will be caught by move()
+            * these exceptions will be caught by returns_legal_move_ and is_legal_move_ 
+              (A bit redundant to have two functions doing that but it will be optimized in the future)
+
+            
+            Ex: "Ne4" returns: (e4, [position of any knight that can move to e4])
+                - this gets passed to returns_legal_move_ which returns the legal knight move if it is unambiguous (only one knight can move there)
         */
         const MoveData read_move_notation_(const Player& plr, std::string& action);
+
+        /*
+            A helper function for move(): given a vector of possible moves, it returns a single Move
+            Parameters: 
+            - player making the move
+            - a MoveData object containing a list of candidates that can move to a certain square
+
+            This function decerns which of the canidate pieces is the correct one to move to the specified tile
+        */
         const Move returns_legal_move_(const Player& plr, const MoveData& move);
+
+        /*
+            A helper function for move():
+            Parameters:
+            - Player making the move
+            - Square of the piece moving
+            - Square for piece to move to
+
+            Returns true given that the move is legal, else returns false
+        
+        */
         const bool is_legal_move_(const Player& plr, const Square& from, const Square& to);
         
         void promote_pawn_(const Square& promotion_square, const char promotion_letter);

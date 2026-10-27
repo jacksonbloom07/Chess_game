@@ -96,9 +96,10 @@ bool Board::OOB(const int& rank, const int& file) const {
 
 void Board::print_board() const {
     const char* SQUARES[2] = {"□", "■"};
+    const char files[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
     for (int i = 0; i < 8; ++i) {
         int rank = (orientation_ == WHITE) ? (7 - i) : i;
-        // if orientation 
+        std::cout << std::to_string(rank + 1) << " ";
         for (int j = 0; j < 8; ++j) {
             int file = (orientation_ == WHITE) ? j : (7 - j);
             if (is_empty_square(rank, file)) {
@@ -114,6 +115,11 @@ void Board::print_board() const {
             }
         }
         std::cout << std::endl;
+    }
+    std::cout << "  ";
+    for (int i = 0; i < 8; ++i) {
+        int file = (orientation_ == WHITE) ? i : (7 - i);
+        std::cout << files[file] << " ";
     }
     std::cout << std::endl;
 
@@ -218,16 +224,16 @@ const bool Board::is_legal_move_(const Player& plr, const Square& from, const Sq
 }
 
 const Move Board::returns_legal_move_(const Player& plr, const MoveData& move) {
-    if (move.canidates.size() == 0 && move.to_move_to == Square(-1, -1)) {
+    if (move.candidates.size() == 0 && move.to_move_to == Square(-1, -1)) {
         return {Square(-1, -1), Square(-1, -1)};
     }
-    if (move.canidates.size() < 1) {
+    if (move.candidates.size() < 1) {
         throw InvalidMoveException("Invalid move: No pieces of that type can move to " + move.to_move_to.translate());
     }
-    else if (move.canidates.size() > 1) {
+    else if (move.candidates.size() > 1) {
         throw InvalidMoveException("Invalid move: Too many pieces can move to " + move.to_move_to.translate());
     }
-    Square from = move.canidates[0];
+    Square from = move.candidates[0];
     Square to = move.to_move_to;
     if (is_legal_move_(plr, from, to)) {
         return {from, to};
@@ -325,22 +331,22 @@ const MoveData Board::read_move_notation_(const Player& plr, std::string& action
         Square sqr_behind_tile = Square(tile.rank - (direction[plr.color_pieces()]), tile.file);
         Square two_sqrs_behind_tile = Square(tile.rank - 2 * (direction[plr.color_pieces()]), tile.file);
 
-        std::vector<Square> canidates = {};
+        std::vector<Square> candidates = {};
         if (!OOB(sqr_behind_tile)) {
             if (Piece* potential_pawn = get_square(sqr_behind_tile)) {
                 if (potential_pawn->id() == PAWN && potential_pawn->color() == plr.color_pieces()) {
-                    canidates.push_back(sqr_behind_tile);
+                    candidates.push_back(sqr_behind_tile);
                 }
             }
             else if (tile.rank == 3 + plr.color_pieces()) { // tile is a square that can be double-jumped to
                if (Piece* potential_pawn = get_square(two_sqrs_behind_tile)) {
                     if (potential_pawn->id() == PAWN && potential_pawn->color() == plr.color_pieces()) {
-                        canidates.push_back(two_sqrs_behind_tile);
+                        candidates.push_back(two_sqrs_behind_tile);
                     }
                 }
             }
         }
-        return {tile, canidates};
+        return {tile, candidates};
     }
 
     if (action.length() == 3 || (action.length() == 4 && action[1] == 'x')) { // Qc2 || Nxh7 TODO add en_passant checking for capturing
@@ -370,15 +376,15 @@ const MoveData Board::read_move_notation_(const Player& plr, std::string& action
         }
 
         Piece* potential_piece = nullptr;
-        std::vector<Square> canidates;
+        std::vector<Square> candidates;
         for (int i = 0; i < pieces_[plr.color_pieces()].size(); i++) {
             if ((potential_piece = pieces_[plr.color_pieces()][i])->id() == id_to_move) {
                 if (potential_piece->in_vision(*this, tile)) {
-                    canidates.push_back(potential_piece->position());
+                    candidates.push_back(potential_piece->position());
                 }
             }
         }
-        return {tile, canidates};
+        return {tile, candidates};
     }
 
     else if (action.length() == 4 || (action.length() == 5 && action[2] == 'x')) { // R2e4 || Rfxd3
@@ -388,13 +394,13 @@ const MoveData Board::read_move_notation_(const Player& plr, std::string& action
             throw InvalidMoveException("Bad notation, attempting to capture empty square: " + tile.translate());
         }
 
-        std::vector<Square> canidates;
+        std::vector<Square> candidates;
         if (isdigit(action[1])) { // Rank specificiation
             int rank = action[1] - '1';
             for(int i = 0; i < 8; i++) {
                 if (Piece* p = board[rank][i]) {
                     if (p->color() == plr.color_pieces() && p->in_vision(*this, tile)) {
-                        canidates.push_back(p->position());
+                        candidates.push_back(p->position());
                     }
                 }
             }
@@ -405,13 +411,13 @@ const MoveData Board::read_move_notation_(const Player& plr, std::string& action
                 if (Piece* p = board[i][file]) {
                     if (p->color() == plr.color_pieces() &&
                     p->in_vision(*this, tile)) {
-                        canidates.push_back(p->position());
+                        candidates.push_back(p->position());
                     }
                 }
             }
         }
 
-        return {tile, canidates};
+        return {tile, candidates};
     }
     /*
     captures: [Piece]x[tile] len = 4
@@ -751,7 +757,7 @@ bool Board::checkmate(const Player& plr) {
     Piece* king = kings_[plr.color_pieces()];
     for (const Square& s : king->vision(*this)) { // can move out of check
         if (is_legal_move_(plr, king->position(), s)) {
-            std::cout << "Debug: NOT Checkmate by available legal King move" << std::endl;
+            
             return false;
         }
     }
@@ -759,7 +765,6 @@ bool Board::checkmate(const Player& plr) {
     for (Piece* enemy_piece : pieces_[!plr.color_pieces()]) {
         if (enemy_piece->in_vision(*this, king->position())) {
             if (attacking_piece != nullptr) {
-                std::cout << "Debug: Checkmate by double check" << std::endl;
                 return true; // king has no legal moves && in double check
             }
             attacking_piece = enemy_piece;
@@ -831,16 +836,10 @@ bool Board::checkmate(const Player& plr) {
     for (const Piece* p : pieces_[plr.color_pieces()]) {
         for (const Square& s : blocking_squares) {
             if (p->id() != KING && is_legal_move_(plr, p->position(), s)) {
-                std::cout << "Debug: NOT Checkmate by available legal move: piece on " << p->position().translate() << " -> " << s.translate() << std::endl;
                 return false;
             }
         }
     }
-    std::cout << "Debug: blocking_squares: ";
-    for (const Square& s : blocking_squares) {
-        std::cout << s.translate() << " ";
-    }
-    std::cout << std::endl;
     return true; // king has no legal moves && no pieces can capture the attacking piece && no piece can block
     
 }

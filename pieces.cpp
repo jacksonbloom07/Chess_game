@@ -12,38 +12,20 @@ Piece::Piece(const int val, const int color, const int id, const int file, const
 Rook::Rook(const int color, const int file, const int rank) : Piece(5, color, ROOK, file, rank)
     {}
 
-// Rook::Rook() : Piece(5, NULL, ROOK, NULL, NULL)
-//     {}
-
 Knight::Knight(const int color, const int file, int rank) : Piece(3, color, KNIGHT, file, rank)
     {}
 
-// Knight::Knight() : Piece(3, NULL, KNIGHT, NULL, NULL)
-//     {}
-
-Bishop::Bishop(const int color, const int file, int rank) : Piece(5, color, BISHOP, file, rank)
+Bishop::Bishop(const int color, const int file, int rank) : Piece(3, color, BISHOP, file, rank)
     {}
-
-// Bishop::Bishop() : Piece(3, NULL, BISHOP, NULL, NULL)
-//     {}
 
 Queen::Queen(const int color, const int file, const int rank) : Piece(9, color, QUEEN, file, rank)
     {}
 
-// Queen::Queen() : Piece(9, NULL, QUEEN, NULL, NULL)
-//     {}
-
 King::King(const int color, const int file, const int rank) : Piece(999, color, KING, file, rank)
     {}
 
-// King::King() : Piece(999, NULL, KING, NULL, NULL)
-//     {}
-
 Pawn::Pawn(const int color, const int file, const int rank) : Piece(1, color, PAWN, file, rank)
     {}
-
-// Pawn::Pawn() : Piece(1, NULL, PAWN, NULL, NULL)
-//     {}
 
 int Piece::value() const { return VALUE_; }
 int Piece::color() const { return color_; }
@@ -144,8 +126,6 @@ std::vector<Square> Bishop::vision(const Board& b) const {
         curr_tile.file = curr_tile.file + f[i];
         while(!b.OOB(curr_tile)) {
 
-            // std::cout << "adding to [" << position().translate() << "] bishop vision: " << curr_tile.translate() << std::endl;
-
             if (!b.is_empty_square(curr_tile)) { // tile has a piece on it
                 sees.push_back(curr_tile);
                 break; // Break so vision doesn't look through piece
@@ -197,11 +177,6 @@ std::vector<Square> King::vision(const Board& b) const {
             sees.push_back(adjacent_square);
         }
     }
-    // std::cout << "King at " << position().translate() << " sees: ";
-    // for (const auto& square : sees) {
-    //     std::cout << square.translate() << " ";
-    // }
-    // std::cout << std::endl;
     return sees;
 
 }
@@ -245,12 +220,6 @@ std::vector<Square> Pawn::vision(const Board& b) const {
         Square en_passant_square = Square(curr_square.rank + direction[color()], p->position().file);
         sees.push_back(en_passant_square); // Add the square the pawn lands on
     }
-
-    // // std::cout << "Pawn at " << curr_square.translate() << " sees: ";
-    // for (const auto& square : sees) {
-    //     std::cout << square.translate() << " ";
-    // }
-    // std::cout << std::endl;
     return sees;
 }
 

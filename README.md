@@ -4,10 +4,6 @@ A command-line chess game written in C++17. The project models each chess piece
 with inheritance and polymorphism, validates moves against the board state, and
 accepts a useful subset of standard algebraic chess notation.
 
-> **Project status:** In progress. Core movement, captures, check detection, and
-> en passant are implemented. Castling and the promotion input flow are not yet
-> complete, and the project does not yet include automated tests.
-
 ## Features
 
 - Object-oriented design with a `Piece` base class and concrete `Rook`, `Knight`,
